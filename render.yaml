@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: laravel-api
+    env: php
+    region: oregon
+    buildCommand: |
+      composer install --no-dev --optimize-autoloader
+    startCommand: |
+      ./start.sh
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: APP_URL
+        value: http://localhost
+      - key: APP_KEY
+        generateValue: true
+
+      # Database (Replace these with your actual Render DB credentials)
+      - key: DB_CONNECTION
+        value: mysql
+      - key: DB_HOST
+        value: 127.0.0.1
+      - key: DB_PORT
+        value: 3306
+      - key: DB_DATABASE
+        value: product_api
+      - key: DB_USERNAME
+        value: root
+      - key: DB_PASSWORD
+        value:
+
+      # Optional: allow any frontend origin during testing
+      - key: CORS_ALLOW_ORIGIN
+        value: "*"
