@@ -8,6 +8,10 @@ Route::get('/', function () {
 });
 
 Route::get('/run-migrate', function () {
-    Artisan::call('migrate', ['--force' => true]);
-    return 'Migration complete!';
+    try {
+        Artisan::call('migrate', ['--force' => true]);
+        return response('<pre>' . Artisan::output() . '</pre>');
+    } catch (\Throwable $e) {
+        return response('<pre>' . $e->getMessage() . "\n" . $e->getTraceAsString() . '</pre>', 500);
+    }
 });
