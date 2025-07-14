@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Api;
 
+use Illuminate\Support\Str;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
-use App\Models\Category;
+use App\Models\ProductImage;
+// use App\Models\Category;
 use Illuminate\Http\Request;
 
 class ProductController extends Controller
@@ -84,51 +86,122 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->validate([
+        $request->validate([
             'title' => 'required|string|max:255',
-            'slug' => 'required|string|unique:products,slug',
-            'price' => 'required|numeric',
+            'price' => 'required|numeric|min:0',
             'description' => 'nullable|string',
-            'category_id' => 'required|exists:categories,id',
-            'images' => 'array',
+            'categoryId' => 'required|exists:categories,id',
+            'images' => 'nullable|array',
             'images.*' => 'url',
         ]);
 
-        $product = Product::create($data);
+        $slug = Str::slug($request->title);
+        $slugExists = Product::where('slug', $slug)->exists();
+        if ($slugExists) {
+            $slug .= '-' . time();
+        }
+        $product = Product::create([
+            'title' => $request->title,
+            'slug' => $slug,
+            'price' => $request->price,
+            'description' => $request->description,
+            'category_id' => $request->categoryId,
+        ]);
 
-        if (!empty($data['images'])) {
-            foreach ($data['images'] as $url) {
-                $product->images()->create(['url' => $url]);
+        if ($request->has('images')) {
+            foreach ($request->images as $url) {
+                ProductImage::create([
+                    'product_id' => $product->id,
+                    'url' => $url,
+                ]);
             }
         }
 
-        return response()->json($product->load(['category', 'images']), 201);
+        // Eager load category and images
+        $product->load('category', 'images');
+
+        return response()->json([
+            'id' => $product->id,
+            'title' => $product->title,
+            'slug' => $product->slug,
+            'price' => (float) $product->price,
+            'description' => $product->description,
+            'images' => $product->images->pluck('url'),
+            'category' => [
+                'id' => $product->category->id,
+                'name' => $product->category->name,
+                'image' => $product->category->image,
+                'slug' => $product->category->slug,
+            ],
+            'creationAt' => $product->created_at->toISOString(),
+            'updatedAt' => $product->updated_at->toISOString(),
+        ], 201);
     }
 
     public function update(Request $request, $id)
     {
         $product = Product::findOrFail($id);
-
-        $data = $request->validate([
-            'title' => 'sometimes|string|max:255',
-            'slug' => 'sometimes|string|unique:products,slug,' . $product->id,
-            'price' => 'sometimes|numeric',
+        $request->validate([
+            'title' => 'sometimes|required|string|max:255',
+            'price' => 'sometimes|required|numeric|min:0',
             'description' => 'nullable|string',
-            'category_id' => 'sometimes|exists:categories,id',
-            'images' => 'array',
+            'categoryId' => 'sometimes|required|exists:categories,id',
+            'images' => 'nullable|array',
             'images.*' => 'url',
         ]);
 
-        $product->update($data);
+        if ($request->has('title')) {
+            $product->title = $request->title;
+            $slug = Str::slug($request->title);
+            $slugExists = Product::where('slug', $slug)->where('id', '!=', $product->id)->exists();
+            $product->slug = $slugExists ? $slug . '-' . time() : $slug;
+        }
 
-        if (isset($data['images'])) {
-            $product->images()->delete();
-            foreach ($data['images'] as $url) {
-                $product->images()->create(['url' => $url]);
+        if ($request->has('price')) {
+            $product->price = $request->price;
+        }
+
+        if ($request->has('description')) {
+            $product->description = $request->description;
+        }
+
+        if ($request->has('categoryId')) {
+            $product->category_id = $request->categoryId;
+        }
+
+        $product->save();
+
+        // Replace images
+        if ($request->has('images')) {
+            $product->images()->delete(); // Delete old images
+
+            foreach ($request->images as $url) {
+                ProductImage::create([
+                    'product_id' => $product->id,
+                    'url' => $url,
+                ]);
             }
         }
 
-        return response()->json($product->load(['category', 'images']));
+        // Load relations
+        $product->load('category', 'images');
+
+        return response()->json([
+            'id' => $product->id,
+            'title' => $product->title,
+            'slug' => $product->slug,
+            'price' => (float) $product->price,
+            'description' => $product->description,
+            'images' => $product->images->pluck('url'),
+            'category' => [
+                'id' => $product->category->id,
+                'name' => $product->category->name,
+                'image' => $product->category->image,
+                'slug' => $product->category->slug,
+            ],
+            'creationAt' => $product->created_at->toISOString(),
+            'updatedAt' => $product->updated_at->toISOString(),
+        ]);
     }
 
     public function destroy($id)
@@ -137,6 +210,6 @@ class ProductController extends Controller
         $product->images()->delete();
         $product->delete();
 
-        return response()->json(['message' => 'Product deleted']);
+        return response()->json(true);
     }
 }
