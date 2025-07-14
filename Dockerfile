@@ -1,26 +1,30 @@
-# Use official PHP image with necessary extensions
-FROM php:8.2
+FROM php:8.2-fpm
+
+# Install system dependencies and PHP extensions
+RUN apt-get update && apt-get install -y \
+    libonig-dev \
+    libzip-dev \
+    unzip \
+    zip \
+    curl \
+    git \
+    && docker-php-ext-install pdo pdo_mysql mbstring zip
 
 # Set working directory
 WORKDIR /var/www
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    git curl zip unzip libpng-dev libjpeg-dev libfreetype6-dev \
-    libonig-dev libxml2-dev libzip-dev libpq-dev \
-    && docker-php-ext-install pdo pdo_mysql mbstring zip exif pcntl gd
+# Copy existing application
+COPY . .
 
 # Install Composer
-COPY --from=composer:2.6 /usr/bin/composer /usr/bin/composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Copy application files
-COPY . /var/www
-
-# Install dependencies
+# Install Laravel dependencies
 RUN composer install --no-dev --optimize-autoloader
 
-# Expose port expected by Render
-EXPOSE 10000
+# Give permissions (if needed)
+RUN chown -R www-data:www-data /var/www
 
-# Start Laravel using built-in server
-CMD php artisan serve --host=0.0.0.0 --port=10000
+# Expose port and start PHP-FPM
+EXPOSE 9000
+CMD ["php-fpm"]
