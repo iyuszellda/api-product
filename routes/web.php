@@ -1,17 +1,11 @@
 <?php
-
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\App;
 
 Route::get('/', function () {
-    return view('welcome');
-});
-
-Route::get('/run-migrate', function () {
-    try {
-        Artisan::call('migrate', ['--force' => true]);
-        return response('<pre>' . Artisan::output() . '</pre>');
-    } catch (\Throwable $e) {
-        return response('<pre>' . $e->getMessage() . "\n" . $e->getTraceAsString() . '</pre>', 500);
+    if (App::environment('production')) {
+        abort(404);
     }
+
+    return response()->json(['message' => 'API is running'], 200);
 });
