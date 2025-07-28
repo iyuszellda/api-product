@@ -5,9 +5,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\SourceImageController;
 
 Route::apiResource('products', ProductController::class);
 Route::apiResource('categories', CategoryController::class);
+Route::apiResource('images', SourceImageController::class);
 
 Route::post('/refresh-products', function (Request $request) {
     if ($request->bearerToken() !== config('app.cron_secret')) {
